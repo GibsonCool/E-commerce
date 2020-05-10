@@ -24,7 +24,7 @@
                             {{range $i, $v := .order}}
                                 <tr>
                                     <td class="user-avatar cell-detail user-info">{{$v.ID}}</td>
-                                    <td class="cell-detail"></td>
+                                    <td class="cell-detail">{{$v.userName}}</td>
                                     <td class="milestone"> {{$v.productName}}
                                     </td>
                                     <td class="cell-detail">{{ if eq $v.orderStatus "1"}} 已发货 {{else}} 未发货 {{end}}</td>

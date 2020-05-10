@@ -66,4 +66,11 @@ func mvcHandler(app *iris.Application) {
 	)
 	productGroup.Handle(new(controllers.ProductController))
 
+	// 订单管理控制器
+	orderRepository := repositories.NewOrder(datasourse.GetInstance())
+	orderService := services.NewOrderService(orderRepository)
+	orderGroup := mvc.New(app.Party("/order"))
+	orderGroup.Register(ctx, orderService)
+	orderGroup.Handle(new(controllers.OrderController))
+
 }
