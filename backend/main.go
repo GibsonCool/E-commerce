@@ -43,7 +43,7 @@ func newApp() *iris.Application {
 
 	// 5.设置异常出错处理
 	app.OnAnyErrorCode(func(ctx iris.Context) {
-		ctx.ViewData("message", ctx.Values().GetStringDefault("message", "访问的页面出错！"))
+		ctx.ViewData("Message", ctx.Values().GetStringDefault("Message", "访问的页面出错！"+ctx.Path()))
 		ctx.ViewLayout("")
 		ctx.View("shared/error.html")
 	})
