@@ -10,7 +10,7 @@ import (
 type App struct {
 	JwtSecret string
 	PageSize  int
-	Logger  *golog.Logger
+	Logger    *golog.Logger
 }
 
 type DataBase struct {
@@ -27,6 +27,8 @@ type Redis struct {
 	MaxIdle     int
 	MaxActive   int
 	IdleTimeout time.Duration
+	NetWork     string
+	Prefix      string
 }
 
 var (

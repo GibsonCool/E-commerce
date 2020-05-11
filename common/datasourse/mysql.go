@@ -10,15 +10,15 @@ import (
 var dbInstance *gorm.DB
 
 // 单例模式
-func GetInstance() *gorm.DB {
-	if dbInstance==nil{
+func GetMysqlInstance() *gorm.DB {
+	if dbInstance == nil {
 		dbInstance = initDB()
 	}
 
 	return dbInstance
 }
 
-func initDB() *gorm.DB{
+func initDB() *gorm.DB {
 	db, err := gorm.Open(conf.DataBaseSetting.Type, conf.DataBaseSetting.SqlDSN)
 	// 设置为true,数据操作日志可以数据在控制台
 	db.LogMode(true)
@@ -27,7 +27,7 @@ func initDB() *gorm.DB{
 
 	// Error
 	if err != nil {
-		conf.AppSetting.Logger.Error("连接数据库不成功", err,conf.DataBaseSetting)
+		conf.AppSetting.Logger.Error("连接数据库不成功", err, conf.DataBaseSetting)
 	} else {
 		conf.AppSetting.Logger.Info("数据库 链接成功\n")
 	}

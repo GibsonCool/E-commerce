@@ -1,14 +1,16 @@
 package main
 
 import (
-	"E-commerce/backend/web/controllers"
 	"E-commerce/common/conf"
 	"E-commerce/common/datasourse"
+	"E-commerce/fronted/web/controllers"
 	"E-commerce/repositories"
 	"E-commerce/services"
 	"context"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
+	"github.com/kataras/iris/sessions"
+	"time"
 )
 
 func main() {
@@ -19,7 +21,7 @@ func main() {
 	mvcHandler(app)
 
 	app.Run(
-		iris.Addr(":4000"),
+		iris.Addr(":4001"),
 		iris.WithoutServerError(iris.ErrServerClosed), //无服务错误提示
 		iris.WithOptimizations,                        //让程序自身尽可能的优化
 	)
@@ -33,10 +35,10 @@ func newApp() *iris.Application {
 	conf.AppSetting.Logger = app.Logger().SetLevel("debug")
 
 	// 3.注册静态资源
-	app.StaticWeb("/assets", "./backend/web/assets")
+	app.StaticWeb("/public", "./fronted/web/public")
 
 	// 4.注册模板
-	template := iris.HTML("./backend/web/views", ".html").
+	template := iris.HTML("./fronted/web/views", ".html").
 		Layout("shared/layout.html").
 		Reload(true)
 	app.RegisterView(template)
@@ -56,21 +58,24 @@ func mvcHandler(app *iris.Application) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
+	sess := sessions.New(sessions.Config{
+		Cookie:  "AdminCookie",
+		Expires: 600 * time.Minute,
+	})
+	// 设置 session 使用 redis 来保存信息
+	sess.UseDatabase(datasourse.GetRedisInstance())
+
+	// 用户管理控制器
+	userRepository := repositories.NewUserRepository(datasourse.GetMysqlInstance())
+	userService := services.NewUserService(userRepository)
+	userGroup := mvc.New(app.Party("/user"))
+	userGroup.Register(ctx, userService, sess)
+	userGroup.Handle(new(controllers.UserController))
+
 	// 商品管理控制器
 	productRepository := repositories.NewProduct(datasourse.GetMysqlInstance())
 	productService := services.NewProductService(productRepository)
 	productGroup := mvc.New(app.Party("/product"))
-	productGroup.Register(
-		ctx,
-		productService,
-	)
+	productGroup.Register(ctx, &productService)
 	productGroup.Handle(new(controllers.ProductController))
-
-	// 订单管理控制器
-	orderRepository := repositories.NewOrder(datasourse.GetMysqlInstance())
-	orderService := services.NewOrderService(orderRepository)
-	orderGroup := mvc.New(app.Party("/order"))
-	orderGroup.Register(ctx, orderService)
-	orderGroup.Handle(new(controllers.OrderController))
-
 }
