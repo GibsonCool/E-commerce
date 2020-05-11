@@ -3,6 +3,7 @@ package main
 import (
 	"E-commerce/common/conf"
 	"E-commerce/common/datasourse"
+	"E-commerce/fronted/middleware"
 	"E-commerce/fronted/web/controllers"
 	"E-commerce/repositories"
 	"E-commerce/services"
@@ -79,7 +80,11 @@ func mvcHandler(app *iris.Application) {
 	orderRepository := repositories.NewOrder(datasourse.GetMysqlInstance())
 	orderService := services.NewOrderService(orderRepository)
 
-	productGroup := mvc.New(app.Party("/product"))
+	productParty := app.Party("/product")
+	// 使用中间件，进行登录校验
+	productParty.Use(middleware.AuthConProduct)
+
+	productGroup := mvc.New(productParty)
 	productGroup.Register(ctx, productService, orderService)
 	productGroup.Handle(new(controllers.ProductController))
 }
