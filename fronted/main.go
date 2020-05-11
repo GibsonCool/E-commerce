@@ -69,13 +69,17 @@ func mvcHandler(app *iris.Application) {
 	userRepository := repositories.NewUserRepository(datasourse.GetMysqlInstance())
 	userService := services.NewUserService(userRepository)
 	userGroup := mvc.New(app.Party("/user"))
-	userGroup.Register(ctx, userService, sess)
+	userGroup.Register(ctx, userService, sess.Start)
 	userGroup.Handle(new(controllers.UserController))
 
 	// 商品管理控制器
 	productRepository := repositories.NewProduct(datasourse.GetMysqlInstance())
 	productService := services.NewProductService(productRepository)
+
+	orderRepository := repositories.NewOrder(datasourse.GetMysqlInstance())
+	orderService := services.NewOrderService(orderRepository)
+
 	productGroup := mvc.New(app.Party("/product"))
-	productGroup.Register(ctx, &productService)
+	productGroup.Register(ctx, productService, orderService)
 	productGroup.Handle(new(controllers.ProductController))
 }

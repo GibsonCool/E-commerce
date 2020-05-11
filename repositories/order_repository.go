@@ -20,7 +20,11 @@ type order struct {
 }
 
 func (o *order) Insert(d *datamodels.Order) (int64, error) {
-	panic("implement me")
+	e := o.sqlDb.Create(d).Error
+	if e != nil {
+		return 0, errors.New("插入订单失败：" + e.Error())
+	}
+	return int64(d.ID), e
 }
 
 func (o *order) Delete(i int64) bool {

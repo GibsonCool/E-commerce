@@ -13,7 +13,7 @@ import (
 type UserController struct {
 	Ctx         iris.Context
 	UserService services.IUserService
-	Session     *sessions.Sessions
+	Session     *sessions.Session
 }
 
 // /user/register
@@ -67,7 +67,7 @@ func (uc *UserController) PostLogin() mvc.Result {
 	// 将用户ID写入 cookie 中
 	tool.GlobalCookie(uc.Ctx, "uid", strconv.FormatInt(int64(user.ID), 10))
 
-	uc.Session.Start(uc.Ctx).Set("userID", strconv.FormatInt(int64(user.ID), 10))
+	uc.Session.Set("userID", strconv.FormatInt(int64(user.ID), 10))
 
 	return mvc.Response{
 		Path: "/product/",
