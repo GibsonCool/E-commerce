@@ -37,6 +37,8 @@ func newApp() *iris.Application {
 
 	// 3.注册静态资源
 	app.StaticWeb("/public", "./fronted/web/public")
+	// 3.1 注册静态模板生成页面
+	app.StaticWeb("/html", "./fronted/web/htmlProductShow")
 
 	// 4.注册模板
 	template := iris.HTML("./fronted/web/views", ".html").
