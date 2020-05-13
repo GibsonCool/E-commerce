@@ -10,6 +10,7 @@ import (
 type App struct {
 	JwtSecret string
 	PageSize  int
+	AesKey    string
 	Logger    *golog.Logger
 }
 

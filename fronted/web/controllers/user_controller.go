@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"E-commerce/datamodels"
+	"E-commerce/encrypt"
 	"E-commerce/services"
 	"E-commerce/tool"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
 	"github.com/kataras/iris/sessions"
+	"github.com/unknwon/com"
 	"strconv"
 )
 
@@ -67,7 +69,16 @@ func (uc *UserController) PostLogin() mvc.Result {
 	// 将用户ID写入 cookie 中
 	tool.GlobalCookie(uc.Ctx, "uid", strconv.FormatInt(int64(user.ID), 10))
 
-	uc.Session.Set("userID", strconv.FormatInt(int64(user.ID), 10))
+	// 取消 session减小服务器压力，依然使用 cookie,进行加密处理，
+	//uc.Session.Set("userID", strconv.FormatInt(int64(user.ID), 10))
+	uidByte := []byte(com.ToStr(user.ID))
+	uidStr, err := encrypt.EnPwdCode(uidByte)
+	uc.Ctx.Application().Logger().Error("uidStr:" + uidStr)
+	if err != nil {
+		uc.Ctx.Application().Logger().Error(err.Error())
+	}
+	// 写入用户浏览及
+	tool.GlobalCookie(uc.Ctx, "sign", uidStr)
 
 	return mvc.Response{
 		Path: "/product/",

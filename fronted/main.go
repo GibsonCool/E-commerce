@@ -10,8 +10,6 @@ import (
 	"context"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
-	"github.com/kataras/iris/sessions"
-	"time"
 )
 
 func main() {
@@ -61,18 +59,22 @@ func mvcHandler(app *iris.Application) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	sess := sessions.New(sessions.Config{
-		Cookie:  "AdminCookie",
-		Expires: 600 * time.Minute,
-	})
-	// 设置 session 使用 redis 来保存信息
-	sess.UseDatabase(datasourse.GetRedisInstance())
+	//sess := sessions.New(sessions.Config{
+	//	Cookie:  "AdminCookie",
+	//	Expires: 600 * time.Minute,
+	//})
+	//// 设置 session 使用 redis 来保存信息
+	//sess.UseDatabase(datasourse.GetRedisInstance())
 
 	// 用户管理控制器
 	userRepository := repositories.NewUserRepository(datasourse.GetMysqlInstance())
 	userService := services.NewUserService(userRepository)
 	userGroup := mvc.New(app.Party("/user"))
-	userGroup.Register(ctx, userService, sess.Start)
+
+	// 使用 cookie 代替 session 后可以取消使用
+	//userGroup.Register(ctx, userService, sess.Start)
+	userGroup.Register(ctx, userService)
+
 	userGroup.Handle(new(controllers.UserController))
 
 	// 商品管理控制器
