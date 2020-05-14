@@ -35,7 +35,7 @@ type ConsistentHash struct {
 	// 虚拟节点个数，永安里增加 hash 的平衡性
 	VirtualNode int
 	//  读写锁
-	*sync.RWMutex
+	sync.RWMutex
 }
 
 func NewConsistentHash() *ConsistentHash {
@@ -114,7 +114,7 @@ func (ch *ConsistentHash) updateSortHashes() {
 	ch.sortedHashes = hashes
 }
 
-// 更具数据标识获取最近服务器节点信息
+// 根据数据标识获取最近服务器节点信息
 func (ch *ConsistentHash) Get(name string) (string, error) {
 	// 只有读，使用读锁
 	ch.RLock()
@@ -132,7 +132,7 @@ func (ch *ConsistentHash) Get(name string) (string, error) {
 	return ch.circle[ch.sortedHashes[nodeIndex]], nil
 }
 
-// 顺时针查找最近的服务节点
+// 顺时针查找 源数据对应 在已排序节点切片中最近的服务节点的下标位置
 func (ch *ConsistentHash) search(key uint32) int {
 	// 查找算法
 	f := func(x int) bool {
