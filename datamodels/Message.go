@@ -23,3 +23,10 @@ func (m *Message) JsonToStr() string {
 
 	return string(bytes)
 }
+
+func (m *Message) StrToJson(dataStr []byte) *Message {
+	if err := json.Unmarshal(dataStr, m); err != nil {
+		conf.AppSetting.Logger.Error("json 转换出错：" + err.Error())
+	}
+	return m
+}

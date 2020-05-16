@@ -2,6 +2,7 @@ package conf
 
 import (
 	"github.com/kataras/golog"
+	"github.com/kataras/iris"
 	"gopkg.in/ini.v1"
 	"log"
 	"time"
@@ -55,6 +56,7 @@ func Setup() {
 	mapTo("app", AppSetting)
 	mapTo("database", DataBaseSetting)
 	mapTo("redis", RedisSetting)
+	AppSetting.Logger = iris.New().Logger()
 
 	RedisSetting.IdleTimeout = RedisSetting.IdleTimeout * time.Second
 }

@@ -89,7 +89,7 @@ func mvcHandler(app *iris.Application) {
 	// 使用中间件，进行登录校验
 	productParty.Use(middleware.AuthConProduct)
 
-	rabbitMQSimple := _0_RabbitMQ.NewRabbitMQSimple("imoocProduct")
+	rabbitMQSimple := _0_RabbitMQ.NewRabbitMQSimple(_0_RabbitMQ.TestQueueName)
 
 	productGroup := mvc.New(productParty)
 	productGroup.Register(ctx, productService, orderService, rabbitMQSimple)

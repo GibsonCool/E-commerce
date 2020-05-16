@@ -20,6 +20,8 @@ const (
 	TopicExchangeName = "exTopic"
 	TopicKey1         = "double.topic.one"
 	TopicKey2         = "double.topic.two"
+
+	TestQueueName = "imoocProduct"
 )
 
 var (
@@ -30,7 +32,7 @@ var (
 
 type RabbitMQ struct {
 	conn    *amqp.Connection
-	channel *amqp.Channel
+	Channel *amqp.Channel
 	// 队列名称
 	QueueName string
 	// 交换机
@@ -48,7 +50,7 @@ func NewRabbitMq(queueName string, exchange string, key string) *RabbitMQ {
 	var err error
 	rabbitmq.conn, err = amqp.Dial(rabbitmq.Mqurl)
 	rabbitmq.failOnError(err, "创建连接错误！")
-	rabbitmq.channel, err = rabbitmq.conn.Channel()
+	rabbitmq.Channel, err = rabbitmq.conn.Channel()
 	rabbitmq.failOnError(err, "获取 channel 失败")
 	return rabbitmq
 }
@@ -56,7 +58,7 @@ func NewRabbitMq(queueName string, exchange string, key string) *RabbitMQ {
 // 断开 channel/connection
 func (r *RabbitMQ) Destory() {
 	_ = r.conn.Close()
-	_ = r.channel.Close()
+	_ = r.Channel.Close()
 }
 
 // 错误处理函数
@@ -77,7 +79,7 @@ func NewRabbitMQSimple(queueName string) *RabbitMQ {
 func (r *RabbitMQ) PublishSimple(message string) {
 	// 1.申请队列，如果队列不存在则会自动创建，如果存在则跳过创建
 	// 好处：保证队列存在，消息能发送到队列中
-	_, e := r.channel.QueueDeclare(
+	_, e := r.Channel.QueueDeclare(
 		r.QueueName,
 		// 是否持久化
 		false,
@@ -98,7 +100,7 @@ func (r *RabbitMQ) PublishSimple(message string) {
 	}
 
 	// 2.发送消息到队列中
-	e = r.channel.Publish(
+	e = r.Channel.Publish(
 		r.Exchange,
 		r.QueueName,
 		// 如果是 true，根据 exchange 类型 routkey 规则，如果无法找得到符合条件的队列那么会把消息返回给发送者
@@ -120,7 +122,7 @@ func (r *RabbitMQ) PublishSimple(message string) {
 // 简单模式 Step3：简单模式下消费代码
 func (r *RabbitMQ) ConsumeSimple() {
 	// 无论生产还是消费，第一步都是尝试先申请队列
-	_, e := r.channel.QueueDeclare(
+	_, e := r.Channel.QueueDeclare(
 		r.QueueName,
 		// 是否持久化
 		false,
@@ -138,7 +140,7 @@ func (r *RabbitMQ) ConsumeSimple() {
 	}
 
 	Done = make(chan bool)
-	msgs, e := r.channel.Consume(
+	msgs, e := r.Channel.Consume(
 		r.QueueName,
 		//用来区分多个消费者，消费者处理器名称
 		"",
@@ -177,7 +179,7 @@ func NewRabbitMQPubSub(exchangeName string) *RabbitMQ {
 // 订阅模式 Step2：生产消息
 func (r *RabbitMQ) PublishPub(message string) {
 	// 1.尝试创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		/*
 			交换机类型：
@@ -199,7 +201,7 @@ func (r *RabbitMQ) PublishPub(message string) {
 	r.failOnError(e, "声明创建交换机失败")
 
 	// 2.发送消息
-	e = r.channel.Publish(
+	e = r.Channel.Publish(
 		r.Exchange,
 		// 在 pub/sub 订阅模式下，这里的key要为空
 		"",
@@ -216,7 +218,7 @@ func (r *RabbitMQ) PublishPub(message string) {
 // 订阅模式 Step3:消费端代码
 func (r *RabbitMQ) ReceiverSub() {
 	// 1、和生产一样，首先尝试创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		//  交换机类型
 		"fanout",
@@ -229,7 +231,7 @@ func (r *RabbitMQ) ReceiverSub() {
 	r.failOnError(e, "消费端尝试创建交换机失败")
 
 	// 2、尝试创建队列，队列名为空，随机生成队列名
-	queue, e := r.channel.QueueDeclare(
+	queue, e := r.Channel.QueueDeclare(
 		"",
 		false,
 		false,
@@ -240,7 +242,7 @@ func (r *RabbitMQ) ReceiverSub() {
 	r.failOnError(e, "消费端尝试创建随机名队列失败")
 
 	// 3、将创建的队列绑定到交换机 exchange 中
-	e = r.channel.QueueBind(
+	e = r.Channel.QueueBind(
 		queue.Name,
 		// 在 pub/sub 订阅模式下，这里的key要为空
 		"",
@@ -250,7 +252,7 @@ func (r *RabbitMQ) ReceiverSub() {
 	)
 	r.failOnError(e, "消费端绑定队列和交换机失败")
 
-	messages, e := r.channel.Consume(
+	messages, e := r.Channel.Consume(
 		queue.Name,
 		"",
 		true,
@@ -283,7 +285,7 @@ func NewRabbitMQRouting(exchangeName, key string) *RabbitMQ {
 // 路由模式 Step2:生产消息
 func (r *RabbitMQ) PublishRouting(message string) {
 	// 1.老样子，先尝试创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		//
 		"direct",
@@ -296,7 +298,7 @@ func (r *RabbitMQ) PublishRouting(message string) {
 	r.failOnError(e, "路由模式创建交换机失败~")
 
 	// 2.发送消息
-	e = r.channel.Publish(
+	e = r.Channel.Publish(
 		r.Exchange,
 		// 路由模式需要设置 key
 		r.Key,
@@ -312,7 +314,7 @@ func (r *RabbitMQ) PublishRouting(message string) {
 // 路由模式 Step3:消费消息
 func (r *RabbitMQ) ReceiverRouting() {
 	// 1.试探性创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		//
 		"direct",
@@ -325,7 +327,7 @@ func (r *RabbitMQ) ReceiverRouting() {
 	r.failOnError(e, "路由模式接受消息创建交换机失败~")
 
 	// 2.试探性创建队列，不填入队列名，随机生成
-	queue, e := r.channel.QueueDeclare(
+	queue, e := r.Channel.QueueDeclare(
 		"", //随机生产队列名称
 		false,
 		false,
@@ -336,7 +338,7 @@ func (r *RabbitMQ) ReceiverRouting() {
 	r.failOnError(e, "路由模式接受消息创建队列失败")
 
 	// 3.将队列绑定到交换机中，并且需要加入路由 key
-	e = r.channel.QueueBind(
+	e = r.Channel.QueueBind(
 		queue.Name,
 		r.Key,
 		r.Exchange,
@@ -344,7 +346,7 @@ func (r *RabbitMQ) ReceiverRouting() {
 		nil,
 	)
 
-	msgs, e := r.channel.Consume(
+	msgs, e := r.Channel.Consume(
 		queue.Name,
 		"",
 		true,
@@ -377,7 +379,7 @@ func NewRabbitMQTopic(exchangeName, key string) *RabbitMQ {
 // Topic模式 Step2:生产消息
 func (r *RabbitMQ) PublishTopic(message string) {
 	// 1.老样子，先尝试创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		//这里的类型要换成 topic
 		"topic",
@@ -390,7 +392,7 @@ func (r *RabbitMQ) PublishTopic(message string) {
 	r.failOnError(e, "Topic模式创建交换机失败~")
 
 	// 2.发送消息
-	e = r.channel.Publish(
+	e = r.Channel.Publish(
 		r.Exchange,
 		// 路由模式需要设置 key
 		r.Key,
@@ -412,7 +414,7 @@ func (r *RabbitMQ) PublishTopic(message string) {
 */
 func (r *RabbitMQ) ReceiverTopic() {
 	// 1.试探性创建交换机
-	e := r.channel.ExchangeDeclare(
+	e := r.Channel.ExchangeDeclare(
 		r.Exchange,
 		//
 		"topic",
@@ -425,7 +427,7 @@ func (r *RabbitMQ) ReceiverTopic() {
 	r.failOnError(e, "Topic模式接受消息创建交换机失败~")
 
 	// 2.试探性创建队列，不填入队列名，随机生成
-	queue, e := r.channel.QueueDeclare(
+	queue, e := r.Channel.QueueDeclare(
 		"", //随机生产队列名称
 		false,
 		false,
@@ -436,7 +438,7 @@ func (r *RabbitMQ) ReceiverTopic() {
 	r.failOnError(e, "Topic模式式接受消息创建队列失败")
 
 	// 3.将队列绑定到交换机中，并且需要加入路由 key
-	e = r.channel.QueueBind(
+	e = r.Channel.QueueBind(
 		queue.Name,
 		r.Key,
 		r.Exchange,
@@ -444,7 +446,7 @@ func (r *RabbitMQ) ReceiverTopic() {
 		nil,
 	)
 
-	msgs, e := r.channel.Consume(
+	msgs, e := r.Channel.Consume(
 		queue.Name,
 		"",
 		true,
