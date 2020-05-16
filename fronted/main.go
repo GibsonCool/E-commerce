@@ -5,6 +5,7 @@ import (
 	"E-commerce/common/datasourse"
 	"E-commerce/fronted/middleware"
 	"E-commerce/fronted/web/controllers"
+	_0_RabbitMQ "E-commerce/rabbitmq"
 	"E-commerce/repositories"
 	"E-commerce/services"
 	"context"
@@ -88,7 +89,9 @@ func mvcHandler(app *iris.Application) {
 	// 使用中间件，进行登录校验
 	productParty.Use(middleware.AuthConProduct)
 
+	rabbitMQSimple := _0_RabbitMQ.NewRabbitMQSimple("imoocProduct")
+
 	productGroup := mvc.New(productParty)
-	productGroup.Register(ctx, productService, orderService)
+	productGroup.Register(ctx, productService, orderService, rabbitMQSimple)
 	productGroup.Handle(new(controllers.ProductController))
 }

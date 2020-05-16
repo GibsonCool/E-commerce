@@ -71,7 +71,7 @@ func (ch *ConsistentHash) Add(element string) {
 }
 
 func (ch *ConsistentHash) add(element string) {
-	// 循环虚拟节点，设置副本
+	// 根据 源节点 循环虚拟节点，设置副本
 	for i := 0; i < ch.VirtualNode; i++ {
 		ch.circle[ch.hashKey(ch.generateKey(element, i))] = element
 	}
@@ -126,7 +126,7 @@ func (ch *ConsistentHash) Get(name string) (string, error) {
 
 	// 计算 源数据 对应 hash 环上的位置（值）
 	key := ch.hashKey(name)
-	// 通过该 值 查找已排序节点切片中对应最近节点 位置
+	// 通过该 key 查找已排序节点切片中对应最近节点 位置
 	nodeIndex := ch.search(key)
 	// 通过最近节点 获取 节点存储的对应服务器信息
 	return ch.circle[ch.sortedHashes[nodeIndex]], nil
