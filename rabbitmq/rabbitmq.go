@@ -76,7 +76,7 @@ func NewRabbitMQSimple(queueName string) *RabbitMQ {
 }
 
 // 简单模式 Step2：简单模式下生产代码
-func (r *RabbitMQ) PublishSimple(message string) {
+func (r *RabbitMQ) PublishSimple(message string) error {
 	// 1.申请队列，如果队列不存在则会自动创建，如果存在则跳过创建
 	// 好处：保证队列存在，消息能发送到队列中
 	_, e := r.Channel.QueueDeclare(
@@ -96,7 +96,7 @@ func (r *RabbitMQ) PublishSimple(message string) {
 		nil,
 	)
 	if e != nil {
-		fmt.Println(e)
+		return e
 	}
 
 	// 2.发送消息到队列中
@@ -114,9 +114,9 @@ func (r *RabbitMQ) PublishSimple(message string) {
 		},
 	)
 	if e != nil {
-		fmt.Println(e)
+		return e
 	}
-
+	return nil
 }
 
 // 简单模式 Step3：简单模式下消费代码

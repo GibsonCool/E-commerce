@@ -36,6 +36,14 @@ go get -u github.com/streadway/amqp
 
   ![image-20200514143301254](img/README/image-20200514143301254.png)
 
+
+
+
+
+
+
+
+
 #### Wrk 压测工具安装
 
 - 安装

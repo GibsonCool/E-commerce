@@ -106,7 +106,9 @@ func (pc *ProductController) GetOrder() []byte {
 
 	message := datamodels.NewMessage(com.StrTo(productStr).MustInt64(), com.StrTo(userIdStr).MustInt64())
 
-	pc.RabbitMq.PublishSimple(message.JsonToStr())
+	if err := pc.RabbitMq.PublishSimple(message.JsonToStr()); err != nil {
+		return []byte("false 加入消息队列失败：" + err.Error())
+	}
 
 	return []byte("true")
 }

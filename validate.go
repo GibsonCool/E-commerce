@@ -3,12 +3,15 @@ package main
 import (
 	"E-commerce/common"
 	"E-commerce/common/conf"
+	"E-commerce/datamodels"
 	"E-commerce/encrypt"
+	_0_RabbitMQ "E-commerce/rabbitmq"
 	"errors"
 	"fmt"
 	"github.com/unknwon/com"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sync"
 )
 
@@ -44,7 +47,7 @@ func CheckUserInfo(r *http.Request) error {
 	if err != nil {
 		return errors.New("用户 sign cookie 解密失败，被篡改：" + err.Error())
 	}
-	fmt.Println("用户ID:" + uidCookie.Value + "  解密后ID：" + string(signByte))
+	fmt.Println("用户ID:" + uidCookie.Value + "  解密前：" + signCookie.Value + "  解密后ID：" + string(signByte))
 	if uidCookie.Value == string(signByte) {
 		return nil
 	}
@@ -53,18 +56,73 @@ func CheckUserInfo(r *http.Request) error {
 
 //执行正常业务逻辑
 func Check(w http.ResponseWriter, r *http.Request) {
-	//执行正常业务逻辑
-	w.Write([]byte("检验通过，执行正常业务逻辑"))
+	conf.AppSetting.Logger.Info("执行check！")
+
+	// 获取请求 URI 参数
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil || len(query["productID"]) <= 0 {
+		w.Write([]byte("false,productID 获取失败"))
+		return
+	}
+	productStr := query["productID"][0]
+
+	// 获取用户 cookie
+	uidCookie, err := r.Cookie("uid")
+	if err != nil {
+		w.Write([]byte("false,用户 uid cookie 获取失败"))
+		return
+	}
+
+	// 1.分布式权限验证
+	if right := accessControl.GetDistributedRight(r); right == false {
+		w.Write([]byte("false,分布式权限验证出错"))
+		return
+	}
+
+	// 2.获取数量权限控制，防止秒杀出现超卖
+	hostUrl := "http://" + getOneIp + ":" + getOnePort + "/getOne"
+	response, body, err := GetCurl(hostUrl, r)
+	if err != nil {
+		w.Write([]byte("false，抢单失败：" + err.Error()))
+		return
+	}
+
+	// 判断数量控制接口状态
+	if response.StatusCode == http.StatusOK && string(body) == "true" {
+		// 创建下单消息体
+		message := &datamodels.Message{
+			ProductID: com.StrTo(productStr).MustInt64(),
+			UserID:    com.StrTo(uidCookie.Value).MustInt64(),
+		}
+
+		// 生产消息放入 rabbitMQ
+		err := rabbitMqValidate.PublishSimple(message.JsonToStr())
+		if err != nil {
+			w.Write([]byte("false,加入 rabbitMq 失败：" + err.Error()))
+			return
+		}
+		w.Write([]byte("true"))
+		return
+	}
+
+	w.Write([]byte("false"))
+	return
 }
 
 var (
+	// 设置集群地址，最好是内网IP
 	hostArray      = []string{"127.0.0.1", "127.0.0.1", "127.0.0.1"}
 	localHost      = "127.0.0.1"
-	port           = "8081"
+	port           = "4002"
 	consistentHash *common.ConsistentHash
 	accessControl  = &AccessControl{
 		sourceArray: make(map[int]interface{}),
 	}
+	rabbitMqValidate *_0_RabbitMQ.RabbitMQ
+
+	// 数量控制接口服务器 IP
+	getOneIp   = "127.0.0.1"
+	getOnePort = "8084"
 )
 
 // 存放访问控制数据信息
@@ -95,47 +153,77 @@ func (ac *AccessControl) GetDistributedRight(req *http.Request) bool {
 		return false
 	}
 
-	// 通过一致性哈希算法，更具用户ID 获取服务器节点IP
+	// 通过一致性哈希算法，更具用户uid 获取服务器节点IP
 	hostRequest, err := consistentHash.Get(uidCookie.Value)
 	if err != nil {
 		return false
 	}
 
 	// 判断是否为本机
+	conf.AppSetting.Logger.Info("hostRequest:" + hostRequest + " localHost:" + localHost)
 	if hostRequest == localHost {
 		return ac.GetDataFromMap(uidCookie.Value)
 	} else {
-		return ac.GetDataFromOtherMap(hostRequest, req)
+		return GetDataFromOtherMap(hostRequest, req)
 	}
 }
 
+// 本机业务逻辑
 func (ac *AccessControl) GetDataFromMap(value string) bool {
-	uid := com.StrTo(value).MustInt()
-	data := ac.GetNewRecord(uid)
+	//uid := com.StrTo(value).MustInt()
+	//data := ac.GetNewRecord(uid)
+	//
+	//// 执行业务逻辑
+	//if data != nil {
+	//	return true
+	//}
+	//return false
+	return true
+}
 
-	// 执行业务逻辑
-	if data != nil {
-		return true
+// 非本机，则作为代理机，将业务请求转发到目标IP机器
+func GetDataFromOtherMap(host string, req *http.Request) bool {
+	hostUrl := "http://" + host + ":" + port + "/checkRight"
+	response, body, err := GetCurl(hostUrl, req)
+	if err != nil {
+		conf.AppSetting.Logger.Error("代理请求失败：" + err.Error())
+		return false
+	}
+
+	// 判断状态
+	if response.StatusCode == http.StatusOK {
+		return string(body) == "true"
 	}
 	return false
 }
 
-func (ac *AccessControl) GetDataFromOtherMap(host string, req *http.Request) bool {
+func CheckRight(w http.ResponseWriter, r *http.Request) {
+	right := accessControl.GetDistributedRight(r)
+	if !right {
+		w.Write([]byte("false"))
+		return
+	}
+	w.Write([]byte("true"))
+	return
+}
+
+// 模拟转发请求
+func GetCurl(hostUrl string, req *http.Request) (response *http.Response, body []byte, err error) {
 	uidCookie, err := req.Cookie("uid")
 	if err != nil {
-		return false
+		return
 	}
 
 	signCookie, err := req.Cookie("sign")
 	if err != nil {
-		return false
+		return
 	}
 
 	// 模拟接口访问
 	client := &http.Client{}
-	request, err := http.NewRequest(http.MethodGet, "http://"+host+":"+port+"check", nil)
+	request, err := http.NewRequest(http.MethodGet, hostUrl, nil)
 	if err != nil {
-		return false
+		return
 	}
 
 	// 手动指定，排除多余 cookies
@@ -154,21 +242,14 @@ func (ac *AccessControl) GetDataFromOtherMap(host string, req *http.Request) boo
 	request.AddCookie(cookieSign)
 	request.AddCookie(cookieUid)
 	// 发起请求，获取返回结果
-	response, err := client.Do(request)
+	response, err = client.Do(request)
 	if err != nil {
-		return false
+		return
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return false
-	}
-
-	// 判断状态
-	if response.StatusCode == http.StatusOK {
-		return string(body) == "true"
-	}
-	return false
+	body, err = ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	return
 }
 
 func main() {
@@ -183,15 +264,27 @@ func main() {
 		consistentHash.Add(value)
 	}
 
+	//if ip, err := common.GetIntranceIp(); err != nil {
+	//	conf.AppSetting.Logger.Error("获取本机IP失败：" + err.Error())
+	//} else {
+	//	localHost = ip
+	//	conf.AppSetting.Logger.Info("本机IP：" + localHost)
+	//}
+
+	rabbitMqValidate = _0_RabbitMQ.NewRabbitMQSimple(_0_RabbitMQ.TestQueueName)
+	defer rabbitMqValidate.Destory()
+
 	// 1.创建过滤器
 	filter := common.NewFilter()
 
 	// 2.注册拦截器
 	filter.RegisterFilterUri("/check", Auth)
+	filter.RegisterFilterUri("/checkRight", Auth)
 
 	// 3.注册路由
 	http.HandleFunc("/check", filter.Handler(Check))
+	http.HandleFunc("/checkRight", filter.Handler(CheckRight))
 
 	// 4.启动服务
-	http.ListenAndServe(":4002", nil)
+	http.ListenAndServe(":"+port, nil)
 }

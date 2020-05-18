@@ -39,6 +39,7 @@ func GetOneProduct() bool {
 	defer mutex.Unlock()
 	count += 1
 	// 限流，没100个值允许成功一个
+	fmt.Printf("sum: %d  count: %d\n", sum, count)
 	if count%100 == 0 {
 		// 判断是否超过限制，防止超卖
 		if sum < productNum {
