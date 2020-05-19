@@ -90,7 +90,7 @@ go get -u github.com/streadway/amqp
     
     ```
 
-    
+    ![image-20200519110239657](img/README/image-20200519110239657.png)
 
 - 只支持 UNIX 系统
 

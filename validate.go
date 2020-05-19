@@ -264,6 +264,7 @@ func main() {
 		consistentHash.Add(value)
 	}
 
+	// 获取本机IP代码
 	//if ip, err := common.GetIntranceIp(); err != nil {
 	//	conf.AppSetting.Logger.Error("获取本机IP失败：" + err.Error())
 	//} else {
